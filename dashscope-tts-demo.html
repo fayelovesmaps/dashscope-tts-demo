@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DashScope TTS Demo &mdash; Audio Generation</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --primary-light: #818CF8;
+            --primary-bg: #EEF2FF;
+            --bg: #F1F5F9;
+            --card: #FFFFFF;
+            --text: #1E293B;
+            --text-sec: #64748B;
+            --border: #E2E8F0;
+            --success: #10B981;
+            --error: #EF4444;
+            --warning: #F59E0B;
+            --radius: 12px;
+            --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; min-height:100vh; }
+        .container { max-width:820px; margin:0 auto; padding:28px 16px; }
+        header { text-align:center; margin-bottom:28px; }
+        header h1 { font-size:26px; font-weight:700; color:var(--primary); margin-bottom:4px; letter-spacing:-.3px; }
+        header p { color:var(--text-sec); font-size:14px; }
+        .card { background:var(--card); border-radius:var(--radius); padding:22px; margin-bottom:14px; box-shadow:var(--shadow); border:1px solid var(--border); }
+        .card-title { font-size:15px; font-weight:600; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+        .form-row { display:flex; gap:12px; margin-bottom:12px; }
+        .form-row:last-child { margin-bottom:0; }
+        .form-group { flex:1; display:flex; flex-direction:column; }
+        label { font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:3px; text-transform:uppercase; letter-spacing:.4px; }
+        select, input[type="text"], input[type="password"], input[type="number"], textarea {
+            width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px;
+            font-size:14px; font-family:inherit; color:var(--text); background:var(--card);
+            transition: border-color .2s, box-shadow .2s;
+        }
+        select:focus, input:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-bg); }
+        textarea { resize:vertical; min-height:90px; }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 22px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; font-family:inherit; }
+        .btn-primary { background:var(--primary); color:#fff; }
+        .btn-primary:hover:not(:disabled) { background:var(--primary-hover); box-shadow:var(--shadow-lg); }
+        .btn-primary:disabled { background:#94A3B8; cursor:not-allowed; }
+        .btn-secondary { background:var(--primary-bg); color:var(--primary); border:1px solid transparent; }
+        .btn-secondary:hover { background:#C7D2FE; }
+        .btn-outline { background:transparent; color:var(--text-sec); border:1px solid var(--border); }
+        .btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+        .btn-full { width:100%; }
+        audio { width:100%; margin:10px 0; border-radius:8px; }
+        .hidden { display:none !important; }
+        .chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+        .chip { padding:5px 13px; border-radius:20px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:var(--card); transition:all .2s; font-weight:500; }
+        .chip:hover, .chip.active { background:var(--primary-bg); border-color:var(--primary-light); color:var(--primary); }
+        .key-wrap { position:relative; }
+        .key-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-sec); font-size:12px; font-weight:500; }
+        .char-count { text-align:right; font-size:11px; color:var(--text-sec); margin-top:3px; }
+        .note { color:var(--text-sec); font-size:12px; margin-top:8px; padding:8px 12px; background:#F8FAFC; border-radius:6px; border-left:3px solid var(--primary-light); line-height:1.5; }
+        .error-msg { color:var(--error); font-size:13px; margin-top:8px; padding:8px 12px; background:#FEF2F2; border-radius:6px; }
+        .spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .curl-box { background:#1E293B; color:#CBD5E1; border-radius:8px; padding:14px; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:11px; line-height:1.6; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin-top:10px; position:relative; }
+        .curl-copy { position:absolute; top:8px; right:8px; background:#334155; color:#94A3B8; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer; font-family:inherit; }
+        .curl-copy:hover { background:#475569; color:#E2E8F0; }
+        .slider-row { display:flex; align-items:center; gap:10px; }
+        .slider-row input[type="range"] { flex:1; -webkit-appearance:none; height:5px; border-radius:3px; background:var(--border); outline:none; border:none; padding:0; }
+        .slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--primary); cursor:pointer; }
+        .slider-val { font-size:13px; font-weight:600; color:var(--primary); min-width:36px; text-align:center; }
+        .status-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .status-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:16px; font-size:12px; font-weight:500; }
+        .status-ready { background:#F0FDF4; color:#15803D; }
+        .status-loading { background:#FEF3C7; color:#92400E; }
+        .status-error { background:#FEF2F2; color:#B91C1C; }
+        .status-done { background:#F0FDF4; color:#15803D; }
+        .btn-row { display:flex; gap:8px; margin-top:4px; }
+        .divider { height:1px; background:var(--border); margin:14px 0; }
+        .footer { text-align:center; padding:20px 0; color:var(--text-sec); font-size:12px; }
+        @media (max-width:640px) {
+            .form-row { flex-direction:column; gap:8px; }
+            .container { padding:16px 12px; }
+            header h1 { font-size:22px; }
+            .btn-row { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>DashScope TTS Demo</h1>
+        <p>Generate audio with Qwen3-TTS &amp; CosyVoice</p>
+    </header>
+
+    <!-- ============ API CONFIG ============ -->
+    <div class="card">
+        <div class="card-title">&#128273; API Configuration</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Region</label>
+                <select id="region">
+                    <option value="mainland">Mainland China (dashscope.aliyuncs.com)</option>
+                    <option value="intl">Singapore International (dashscope-intl.aliyuncs.com)</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>DashScope API Key</label>
+                <div class="key-wrap">
+                    <input type="password" id="apiKey" placeholder="sk-xxxxxxxxxxxxxxxx">
+                    <button class="key-toggle" onclick="toggleKey()">Show</button>
+                </div>
+            </div>
+        </div>
+        <div class="note">Your API key is used only in-browser and never sent to any third party. All calls go directly to DashScope.</div>
+    </div>
+
+    <!-- ============ MODEL & VOICE ============ -->
+    <div class="card">
+        <div class="card-title">&#127925; Model &amp; Voice</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Model Family</label>
+                <select id="modelFamily" onchange="onFamilyChange()">
+                    <option value="qwen3-tts">Qwen3-TTS</option>
+                    <option value="cosyvoice">CosyVoice</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Model</label>
+                <select id="model"></select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" id="voiceGroup">
+                <label>Voice</label>
+                <select id="voice"></select>
+                <input type="text" id="customVoice" class="hidden" placeholder="Enter your cloned/custom voice ID">
+            </div>
+            <div class="form-group" id="langGroup">
+                <label>Language</label>
+                <select id="language">
+                    <option value="Auto">Auto Detect</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="English" selected>English</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Korean">Korean</option>
+                    <option value="French">French</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="German">German</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Russian">Russian</option>
+                    <option value="Portuguese">Portuguese</option>
+                </select>
+            </div>
+        </div>
+        <div id="voiceNote" class="note hidden" style="margin-top:4px;">Plus models use base voice names (without _v3 suffix). This is handled automatically when generating.</div>
+    </div>
+    <!-- ============ OUTPUT SETTINGS (always visible) ============ -->
+    <div class="card">
+        <div class="card-title">&#128266; Output Settings</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Audio Format</label>
+                <select id="audioFormat">
+                    <option value="wav">WAV</option>
+                    <option value="mp3">MP3</option>
+                    <option value="mp4">MP4</option>
+                    <option value="pcm">PCM</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ COSYVOICE SLIDERS (CosyVoice only) ============ -->
+    <div class="card" id="cosyParams">
+        <div class="card-title">&#9881;&#65039; CosyVoice Voice Controls</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Volume (0&ndash;100)</label>
+                <div class="slider-row">
+                    <input type="range" id="volume" min="0" max="100" value="50" oninput="document.getElementById('volVal').textContent=this.value">
+                    <span class="slider-val" id="volVal">50</span>
+                </div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Speed (0.5&ndash;2.0)</label>
+                <div class="slider-row">
+                    <input type="range" id="rate" min="50" max="200" value="100" oninput="document.getElementById('rateVal').textContent=(this.value/100).toFixed(1)">
+                    <span class="slider-val" id="rateVal">1.0</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Pitch (0.5&ndash;2.0)</label>
+                <div class="slider-row">
+                    <input type="range" id="pitch" min="50" max="200" value="100" oninput="document.getElementById('pitchVal').textContent=(this.value/100).toFixed(1)">
+                    <span class="slider-val" id="pitchVal">1.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ TEXT INPUT ============ -->
+    <div class="card">
+        <div class="card-title">&#128221; Text &amp; Instructions</div>
+
+        <label style="margin-bottom:6px; display:block;">Quick Templates</label>
+        <div class="chip-row">
+            <span class="chip active" data-tpl="fantuan" onclick="loadTemplate('fantuan', this)">Fan Tuan Delivery</span>
+            <span class="chip" data-tpl="cs" onclick="loadTemplate('cs', this)">Customer Service</span>
+            <span class="chip" data-tpl="ad" onclick="loadTemplate('ad', this)">Product Ad</span>
+            <span class="chip" data-tpl="news" onclick="loadTemplate('news', this)">News Anchor</span>
+            <span class="chip" data-tpl="story" onclick="loadTemplate('story', this)">Audiobook</span>
+            <span class="chip" data-tpl="custom" onclick="loadTemplate('custom', this)">Custom</span>
+        </div>
+
+        <div class="form-group">
+            <label>Text to Synthesize</label>
+            <textarea id="textInput" rows="5" oninput="updateCharCount()"
+                placeholder="Enter text to convert to speech..."></textarea>
+            <div class="char-count"><span id="charCount">0</span> characters</div>
+        </div>
+
+        <div id="instructGroup" style="margin-top:12px;">
+            <div class="form-group">
+                <label>Voice Style Instructions <span style="font-weight:400;text-transform:none">(instruct models only)</span></label>
+                <textarea id="instructInput" rows="3"
+                    placeholder="e.g. Speak with a warm, friendly, and energetic tone. Emphasize key phrases naturally."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ GENERATE ============ -->
+    <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn btn-primary btn-full" id="generateBtn" onclick="generateAudio()">
+            &#9654; Generate Audio
+        </button>
+    </div>
+
+    <!-- ============ AUDIO OUTPUT ============ -->
+    <div class="card" id="audioCard">
+        <div class="status-bar">
+            <div class="card-title" style="margin-bottom:0;">&#127911; Audio Output</div>
+            <span class="status-pill status-ready" id="audioStatus">Ready</span>
+        </div>
+        <audio id="audioPlayer" controls style="display:none;"></audio>
+        <div id="audioPlaceholder" style="text-align:center; padding:20px 0; color:var(--text-sec); font-size:13px;">
+            Configure settings above and click <strong>Generate Audio</strong> to hear the result.
+        </div>
+        <div id="audioError" class="error-msg hidden"></div>
+        <div id="audioMeta" class="hidden" style="margin-top:8px; font-size:12px; color:var(--text-sec);"></div>
+        <div class="btn-row hidden" id="audioActions">
+            <a id="downloadLink" class="btn btn-outline" style="font-size:13px; text-decoration:none;" download>&#11015; Download Audio</a>
+            <button class="btn btn-outline" style="font-size:13px;" onclick="toggleCurl()">&#128203; Show cURL</button>
+            <button class="btn btn-outline" style="font-size:13px;" onclick="showRawResponse()">{ } Raw JSON</button>
+        </div>
+        <div id="curlSection" class="hidden">
+            <div class="curl-box" id="curlOutput"></div>
+        </div>
+        <div id="rawSection" class="hidden">
+            <div class="curl-box" id="rawOutput"></div>
+        </div>
+    </div>
+
+    <div class="footer">DashScope TTS Demo &mdash; All API calls are made directly from your browser to Alibaba Cloud.</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA: models, voices, templates
+// ═══════════════════════════════════════
+
+const MODELS = {
+    'qwen3-tts': [
+        { id: 'qwen3-tts-flash', name: 'Qwen3-TTS Flash', instruct: false },
+        { id: 'qwen3-tts-instruct-flash', name: 'Qwen3-TTS Instruct Flash', instruct: true },
+    ],
+    'cosyvoice': [
+        { id: 'cosyvoice-v3-flash', name: 'CosyVoice v3 Flash', instruct: false },
+        { id: 'cosyvoice-v3-plus', name: 'CosyVoice v3 Plus (Mainland only)', instruct: false },
+        { id: 'cosyvoice-v3.5-flash', name: 'CosyVoice v3.5 Flash (Mainland only)', instruct: false },
+        { id: 'cosyvoice-v3.5-plus', name: 'CosyVoice v3.5 Plus (Mainland only)', instruct: false },
+    ]
+};
+
+const VOICES = {
+    // ── Qwen3-TTS Flash: all 48 voices ──
+    'qwen3-tts-flash': [
+        'Cherry','Serena','Ethan','Chelsie','Momo','Vivian','Moon','Maia','Kai','Nofish',
+        'Bella','Eldric Sage','Mia','Mochi','Bellona','Vincent','Bunny','Neil','Elias','Arthur',
+        'Nini','Seren','Pip','Stella',
+        'Jennifer','Ryan','Katerina','Aiden','Bodega','Sonrisa','Alek','Dolce',
+        'Sohee','Ono Anna','Lenn','Emilien','Andre','Radio Gol',
+        'Jada','Dylan','Li','Marcus','Roy','Peter','Sunny','Eric','Rocky','Kiki'
+    ],
+    // ── Qwen3-TTS Instruct Flash: 24 shared voices only ──
+    'qwen3-tts-instruct-flash': [
+        'Cherry','Serena','Ethan','Chelsie','Momo','Vivian','Moon','Maia','Kai','Nofish',
+        'Bella','Eldric Sage','Mia','Mochi','Bellona','Vincent','Bunny','Neil','Elias','Arthur',
+        'Nini','Seren','Pip','Stella'
+    ],
+    // ── CosyVoice v3 Flash: 88 system voices ──
+    'cosyvoice-v3-flash': [
+        // Chinese adult female
+        'longanhuan_v3','longyingxiao_v3','longyingjing_v3','longyingling_v3','longyingtao_v3',
+        'longyingmu_v3','longxiaochun_v3','longxiaoxia_v3','longyumi_v3','longanwen_v3',
+        'longanli_v3','longhua_v3','longyan_v3','longxing_v3','longwan_v3','longqiang_v3',
+        'longfeifei_v3','longanrou_v3','longanling_v3','longanya_v3','longanqin_v3',
+        'longmiao_v3','longyuan_v3','longyue_v3','longwanjun_v3','longanran_v3',
+        'longanxuan_v3','longdaiyu_v3','loongbella_v3',
+        // Chinese adult male
+        'longanyang','longfei_v3','longyingxun_v3','longanlang_v3','longanyun_v3',
+        'longcheng_v3','longze_v3','longzhe_v3','longtian_v3','longhao_v3','longhan_v3',
+        'longanzhi_v3','longxiu_v3','longnan_v3','longyichen_v3','longlaobo_v3',
+        'longsanshu_v3','longshuo_v3','longshu_v3','longhouge_v3',
+        // Children
+        'longhuhu_v3','longpaopao_v3','longjielidou_v3','longxian_v3','longling_v3',
+        'longshanshan_v3','longniuniu_v3',
+        // Chinese dialect
+        'longjiaxin_v3','longjiayi_v3','longanyue_v3','longlaotie_v3','longshange_v3',
+        'longanmin_v3','longantai_v3',
+        // English
+        'loongabby_v3','loongandy_v3','loongannie_v3','loongava_v3','loongbeth_v3',
+        'loongbetty_v3','loongcally_v3','loongcindy_v3','loongdavid_v3','loongdonna_v3',
+        'loongemily_v3','loongeric_v3','loongluna_v3','loongluca_v3',
+        // Japanese
+        'loongriko_v3','loongtomoka_v3','loongtomoya_v3','loongyuuna_v3','loongyuuma_v3',
+        // Korean
+        'loongkyong_v3','loongjihun_v3',
+        // Indonesian
+        'loongindah_v3',
+        // Robot / special
+        'longjiqi_v3','longlaoyi_v3'
+    ],
+    // ── CosyVoice v3 Plus: only 2 system voices (base names, no _v3) ──
+    'cosyvoice-v3-plus': [
+        'longanyang','longanhuan'
+    ],
+    // ── CosyVoice v3.5: custom/cloned voices only ──
+    'cosyvoice-v3.5-flash': [],
+    'cosyvoice-v3.5-plus': []
+};
+
+const TEMPLATES = {
+    fantuan: {
+        text: `Hello and welcome to Fan Tuan Delivery! Your order number 8866 has been confirmed and is now being prepared. Your rider Zhang Wei is heading to the restaurant to pick up your meal, and it should arrive at your door within 25 minutes. You can track your delivery in real-time through the Fan Tuan app. If you have any questions, don't hesitate to reach out to our support team. Enjoy your meal!`,
+        instruct: 'Speak with a warm, friendly, and upbeat tone. Sound like a professional customer-service representative who genuinely cares. Slightly emphasize the order number and estimated time.',
+        voice: 'Cherry',
+        cosyVoice: 'loongbella_v3',
+        lang: 'en',
+        ctx: 'Food delivery service notification'
+    },
+    cs: {
+        text: `Thank you for calling Sunshine Electronics customer support. My name is Alex and I'll be happy to assist you today. Before we get started, may I have your order number or the email address associated with your account? I'll do my best to resolve your issue as quickly as possible.`,
+        instruct: 'Professional, calm, and reassuring customer service voice. Medium pace, clear enunciation. Warm but businesslike.',
+        voice: 'Ethan',
+        cosyVoice: 'loongandy_v3',
+        lang: 'en',
+        ctx: 'Customer service phone greeting'
+    },
+    ad: {
+        text: `Introducing the all-new AeroBlend Pro — the smartest blender you've ever owned. With six precision speed settings, whisper-quiet operation, and a self-cleaning mode, it turns any kitchen into a professional smoothie bar. Available now at leading retailers. AeroBlend Pro: blend smarter, live better.`,
+        instruct: 'Energetic, confident, and persuasive advertising voice. Build excitement through the features and deliver the tagline with punch. Slight pause before the brand name.',
+        voice: 'Chelsie',
+        cosyVoice: 'loongemily_v3',
+        lang: 'en',
+        ctx: 'Product advertisement / commercial'
+    },
+    news: {
+        text: `Good evening. In tonight's top story, city officials have approved a landmark infrastructure plan that will modernize the downtown transit system over the next five years. The project, estimated at four-point-two billion dollars, includes three new subway lines, expanded bus rapid transit, and a network of protected bike lanes. Construction is expected to begin early next year.`,
+        instruct: 'Authoritative news anchor voice. Measured pace, neutral and objective tone. Clear articulation with natural emphasis on key facts and numbers.',
+        voice: 'Ryan',
+        cosyVoice: 'loongdavid_v3',
+        lang: 'en',
+        ctx: 'Television news broadcast'
+    },
+    story: {
+        text: `The old lighthouse keeper climbed the spiral stairs one last time, his lantern casting long shadows on the stone walls. At the top, he paused and looked out across the dark sea. The storm was coming — he could feel it in his bones. But tonight, the light would burn as bright as ever. He owed that much to the sailors who depended on it.`,
+        instruct: 'Warm, immersive storytelling voice. Slightly slower pace with dramatic pauses. Convey a sense of nostalgia and quiet determination. Let the listener feel the atmosphere.',
+        voice: 'Eldric Sage',
+        cosyVoice: 'longanyang',
+        lang: 'en',
+        ctx: 'Audiobook narration'
+    },
+    custom: {
+        text: '',
+        instruct: '',
+        voice: 'Cherry',
+        cosyVoice: 'longanyang',
+        lang: 'auto',
+        ctx: ''
+    }
+};
+
+const ENDPOINTS = {
+    mainland: 'https://dashscope.aliyuncs.com',
+    intl: 'https://dashscope-intl.aliyuncs.com'
+};
+
+const TTS_PATHS = {
+    'qwen3-tts': '/api/v1/services/aigc/multimodal-generation/generation',
+    'cosyvoice': '/api/v1/services/audio/tts/SpeechSynthesizer'
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let lastRawResponse = null;
+let lastCurl = '';
+let currentTemplate = 'fantuan';
+
+// ═══════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════
+function toggleKey() {
+    const inp = $('apiKey');
+    const btn = inp.nextElementSibling;
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+    else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function updateCharCount() {
+    $('charCount').textContent = $('textInput').value.length;
+}
+
+function setStatus(id, text, type) {
+    const el = $(id);
+    el.className = 'status-pill status-' + type;
+    el.textContent = text;
+}
+
+function setError(id, msg) {
+    const el = $(id);
+    if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+    else { el.classList.add('hidden'); }
+}
+
+// ═══════════════════════════════════════
+// DYNAMIC UI
+// ═══════════════════════════════════════
+function onFamilyChange() {
+    const family = $('modelFamily').value;
+    // Populate models
+    const modelSel = $('model');
+    modelSel.innerHTML = '';
+    MODELS[family].forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        modelSel.appendChild(opt);
+    });
+    // Show/hide family-specific sections
+    $('cosyParams').classList.toggle('hidden', family !== 'cosyvoice');
+    $('langGroup').classList.toggle('hidden', family === 'cosyvoice');
+    // Populate voices and update instruct section via onModelChange
+    onModelChange();
+}
+
+function onModelChange() {
+    const family = $('modelFamily').value;
+    const modelId = $('model').value;
+    const modelDef = MODELS[family].find(m => m.id === modelId);
+
+    // Show/hide instruct section
+    const showInstruct = modelDef && modelDef.instruct;
+    $('instructGroup').classList.toggle('hidden', !showInstruct);
+
+    // Populate voices based on selected model
+    const voices = VOICES[modelId] || [];
+    const voiceSel = $('voice');
+    const customInp = $('customVoice');
+    voiceSel.innerHTML = '';
+
+    if (voices.length > 0) {
+        // System voices available — show dropdown, hide text input
+        voiceSel.classList.remove('hidden');
+        customInp.classList.add('hidden');
+        voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            voiceSel.appendChild(opt);
+        });
+        // Set voice from current template if available
+        const tpl = TEMPLATES[currentTemplate];
+        if (tpl) {
+            const targetVoice = family === 'cosyvoice' ? tpl.cosyVoice : tpl.voice;
+            if (targetVoice && voiceSel.querySelector(`option[value="${targetVoice}"]`)) {
+                voiceSel.value = targetVoice;
+            }
+        }
+        $('voiceNote').classList.add('hidden');
+    } else {
+        // No system voices (v3.5 models) — hide dropdown, show text input
+        voiceSel.classList.add('hidden');
+        customInp.classList.remove('hidden');
+        customInp.value = '';
+        $('voiceNote').textContent = 'This model has no system preset voices. Enter a custom/cloned voice ID created via the Voice Cloning API.';
+        $('voiceNote').classList.remove('hidden');
+    }
+
+    // Show note for v3-plus (only 2 voices)
+    if (modelId === 'cosyvoice-v3-plus') {
+        $('voiceNote').textContent = 'v3 Plus has only 2 system voices. For more options, use v3 Flash (88 voices) or clone a custom voice.';
+        $('voiceNote').classList.remove('hidden');
+    }
+}
+
+$('model').addEventListener('change', onModelChange);
+
+function loadTemplate(key, el) {
+    currentTemplate = key;
+    const tpl = TEMPLATES[key];
+    if (!tpl) return;
+    $('textInput').value = tpl.text;
+    $('instructInput').value = tpl.instruct;
+    if (tpl.lang) $('language').value = tpl.lang;
+    updateCharCount();
+    // Update voice
+    const family = $('modelFamily').value;
+    const targetVoice = family === 'cosyvoice' ? tpl.cosyVoice : tpl.voice;
+    if (targetVoice && $('voice').querySelector(`option[value="${targetVoice}"]`)) {
+        $('voice').value = targetVoice;
+    }
+    // Update active chip
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    if (el) {
+        el.classList.add('active');
+    } else {
+        const chip = document.querySelector(`.chip[data-tpl="${key}"]`);
+        if (chip) chip.classList.add('active');
+    }
+}
+
+// ═══════════════════════════════════════
+// BUILD REQUEST
+// ═══════════════════════════════════════
+function buildTTSRequest() {
+    const family = $('modelFamily').value;
+    const model = $('model').value;
+    // Use custom voice input if dropdown is hidden (v3.5 models)
+    const voice = $('voice').classList.contains('hidden')
+        ? $('customVoice').value.trim()
+        : $('voice').value;
+    const text = $('textInput').value.trim();
+    const region = $('region').value;
+    const baseUrl = ENDPOINTS[region];
+    const path = TTS_PATHS[family];
+    const url = baseUrl + path;
+
+    let body;
+    if (family === 'qwen3-tts') {
+        const input = { text, voice };
+        const lang = $('language').value;
+        if (lang && lang !== 'auto') input.language_type = lang;
+        const modelDef = MODELS[family].find(m => m.id === model);
+        if (modelDef && modelDef.instruct) {
+            const instr = $('instructInput').value.trim();
+            if (instr) input.instructions = instr;
+        }
+        body = { model, input };
+    } else {
+        // CosyVoice — voice is already correct per-model (no stripping needed)
+        const input = { text, voice };
+        const params = {
+            format: $('audioFormat').value,
+            sample_rate: 22050,
+            volume: parseInt($('volume').value),
+            rate: parseFloat(($('rate').value / 100).toFixed(2)),
+            pitch: parseFloat(($('pitch').value / 100).toFixed(2))
+        };
+        body = { model, input, parameters: params };
+    }
+    return { url, body };
+}
+
+// ═══════════════════════════════════════
+// GENERATE AUDIO
+// ═══════════════════════════════════════
+async function generateAudio() {
+    const apiKey = $('apiKey').value.trim();
+    const text = $('textInput').value.trim();
+    if (!apiKey) { setError('audioError', 'Please enter your DashScope API key.'); return; }
+    if (!text) { setError('audioError', 'Please enter text to synthesize.'); return; }
+    // Check voice is provided (especially for v3.5 custom voice input)
+    const voiceCheck = $('voice').classList.contains('hidden')
+        ? $('customVoice').value.trim()
+        : $('voice').value;
+    if (!voiceCheck) { setError('audioError', 'Please select or enter a voice ID.'); return; }
+
+    setError('audioError', null);
+    setStatus('audioStatus', 'Generating...', 'loading');
+    $('generateBtn').disabled = true;
+    $('generateBtn').innerHTML = '<span class="spinner"></span> Generating...';
+    $('audioPlayer').style.display = 'none';
+    $('audioPlaceholder').style.display = 'none';
+    $('audioActions').classList.add('hidden');
+    $('curlSection').classList.add('hidden');
+    $('rawSection').classList.add('hidden');
+
+    const { url, body } = buildTTSRequest();
+
+    // Build curl
+    lastCurl = `curl -X POST '${url}' \\\n  -H 'Authorization: Bearer ${apiKey}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(body, null, 2)}'`;
+
+    try {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + apiKey,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await resp.json();
+        lastRawResponse = data;
+
+        if (!resp.ok) {
+            const errMsg = data.message || data.error?.message || JSON.stringify(data);
+            throw new Error(`API Error ${resp.status}: ${errMsg}`);
+        }
+
+        // Extract audio URL from various response formats
+        const audioUrl = extractAudioUrl(data);
+        if (!audioUrl) {
+            throw new Error('Could not find audio URL in response. Raw response: ' + JSON.stringify(data).substring(0, 300));
+        }
+
+        // Play audio
+        const player = $('audioPlayer');
+        player.src = audioUrl;
+        player.style.display = 'block';
+        player.play().catch(() => {}); // autoplay may be blocked
+
+        // Download link
+        $('downloadLink').href = audioUrl;
+        $('downloadLink').download = 'tts_output.' + (audioUrl.includes('.mp3') ? 'mp3' : 'wav');
+        $('audioActions').classList.remove('hidden');
+
+        // Meta
+        const usage = data.usage;
+        let metaText = '';
+        if (usage) {
+            if (usage.input_characters) metaText += `Characters: ${usage.input_characters}`;
+            if (usage.total_tokens) metaText += ` | Tokens: ${usage.total_tokens}`;
+        }
+        metaText += ` | Model: ${body.model}`;
+        $('audioMeta').textContent = metaText;
+        $('audioMeta').classList.remove('hidden');
+
+        setStatus('audioStatus', 'Audio Ready', 'done');
+
+    } catch (err) {
+        console.error(err);
+        let errorText = err.message;
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+            errorText += '\n\nThis may be a CORS issue. Try one of these solutions:\n'
+                + '1. Run a local proxy server (e.g. cors-anywhere)\n'
+                + '2. Use a browser extension to allow CORS\n'
+                + '3. Open Chrome with: --disable-web-security --user-data-dir=/tmp/chrome-dev';
+        }
+        setError('audioError', errorText);
+        setStatus('audioStatus', 'Error', 'error');
+        $('audioPlaceholder').style.display = 'block';
+    } finally {
+        $('generateBtn').disabled = false;
+        $('generateBtn').innerHTML = '&#9654; Generate Audio';
+    }
+}
+
+function extractAudioUrl(data) {
+    try {
+        if (data.output?.audio?.url) return data.output.audio.url;
+        if (typeof data.output?.audio === 'string') return data.output.audio;
+        if (data.output?.url) return data.output.url;
+        if (data.output?.result?.url) return data.output.result.url;
+        if (data.audio_url) return data.audio_url;
+        if (data.url) return data.url;
+        // Check for nested results array
+        if (data.output?.results?.[0]?.url) return data.output.results[0].url;
+    } catch(e) {}
+    return null;
+}
+
+function toggleCurl() {
+    const sec = $('curlSection');
+    sec.classList.toggle('hidden');
+    if (!sec.classList.contains('hidden')) {
+        $('curlOutput').textContent = lastCurl;
+        $('rawSection').classList.add('hidden');
+    }
+}
+
+function showRawResponse() {
+    const sec = $('rawSection');
+    sec.classList.toggle('hidden');
+    if (!sec.classList.contains('hidden')) {
+        $('rawOutput').textContent = JSON.stringify(lastRawResponse, null, 2);
+        $('curlSection').classList.add('hidden');
+    }
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+function init() {
+    onFamilyChange();
+    loadTemplate('fantuan');
+    // Restore API key from sessionStorage
+    try {
+        const saved = sessionStorage.getItem('ds_api_key');
+        if (saved) $('apiKey').value = saved;
+    } catch(e) {}
+    // Save key on change
+    $('apiKey').addEventListener('input', () => {
+        try { sessionStorage.setItem('ds_api_key', $('apiKey').value); } catch(e) {}
+    });
+}
+
+init();
+</script>
+</body>
+</html>
